@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#ff3860">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>🎨 Roleta Speed Draw 🎨</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  :root {
+    --grad1:#7ec8f0; --grad2:#aee6f7; --grad3:#f7e9b0; --grad4:#f4d58d; --base:#e6b866;
+    --card:#ffffff; --card-txt:#333; --muted:#999; --painel:rgba(255,255,255,.93);
+  }
+  body.dark {
+    --card:#2a2a3e; --card-txt:#f0f0f5; --muted:#9a9ab0; --painel:rgba(40,40,60,.94);
+  }
+  html, body { height:100%; }
+  body {
+    font-family:'Comic Sans MS','Trebuchet MS',system-ui,sans-serif;
+    background:linear-gradient(180deg,var(--grad1) 0%,var(--grad2) 45%,var(--grad3) 72%,var(--grad4) 100%);
+    transition:background 1.2s ease; min-height:100vh; display:flex; flex-direction:column;
+    align-items:center; padding:12px 12px 130px; color:#333; overflow-x:hidden; position:relative;
+  }
+  body.dark { color:#f0f0f5; }
+
+  #cenario { position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+  .particula { position:absolute; will-change:transform; }
+  @keyframes subir { from{transform:translateY(20px) rotate(0);opacity:0;} 10%{opacity:.9;} 90%{opacity:.9;} to{transform:translateY(-110vh) rotate(360deg);opacity:0;} }
+  @keyframes descer { from{transform:translateY(-40px) rotate(0);opacity:0;} 10%{opacity:.95;} 90%{opacity:.95;} to{transform:translateY(110vh) rotate(360deg);opacity:0;} }
+  @keyframes atravessar { from{transform:translateX(-80px);} to{transform:translateX(110vw);} }
+  @keyframes piscarEstrela { 0%,100%{opacity:.25;transform:scale(.7);} 50%{opacity:1;transform:scale(1.1);} }
+  .estrela-fixa { position:absolute; color:#fff; animation:piscarEstrela ease-in-out infinite; }
+  .sol { position:fixed; top:16px; right:70px; width:58px; height:58px; border-radius:50%;
+    background:radial-gradient(circle,#fff176,#ffca28); box-shadow:0 0 40px #ffe082; z-index:1;
+    animation:brilhar 3s ease-in-out infinite; transition:opacity .8s; }
+  @keyframes brilhar { 50%{box-shadow:0 0 62px #ffe082;} }
+
+  /* barra superior de botões */
+  .topo { position:fixed; top:10px; left:10px; display:flex; gap:6px; z-index:20; }
+  .icon-btn { width:42px; height:42px; border:none; border-radius:50%; background:var(--painel);
+    font-size:1.2rem; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,.2); transition:transform .12s;
+    display:flex; align-items:center; justify-content:center; }
+  .icon-btn:active { transform:scale(.9); }
+
+  h1 { font-size:clamp(1.4rem,6vw,2.8rem); color:#fff; text-shadow:3px 3px 0 #ff6b9d,6px 6px 0 rgba(0,0,0,.15);
+    margin:44px 0 2px; text-align:center; letter-spacing:1px; position:relative; z-index:3; }
+  .subtitle { color:#fff; font-size:clamp(.78rem,3vw,1rem); text-shadow:1px 1px 3px rgba(0,0,0,.3);
+    margin-bottom:12px; text-align:center; position:relative; z-index:3; }
+
+  .categorias { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; max-width:820px;
+    margin-bottom:12px; position:relative; z-index:3; }
+  .cat-btn { border:none; border-radius:30px; padding:8px 12px; font-size:.82rem; font-weight:bold;
+    font-family:inherit; cursor:pointer; background:rgba(255,255,255,.6); color:#555;
+    transition:transform .15s,background .2s; box-shadow:0 3px 8px rgba(0,0,0,.12); white-space:nowrap; }
+  .cat-btn:hover { transform:translateY(-2px) scale(1.05); }
+  .cat-btn.ativo { background:#fff; color:#d6336c; box-shadow:0 4px 14px rgba(214,51,108,.4); transform:scale(1.05); }
+
+  /* filtro dificuldade + toggle sem repetir */
+  .opcoes-linha { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; align-items:center;
+    margin-bottom:14px; position:relative; z-index:3; }
+  .dif-group { display:flex; gap:4px; background:var(--painel); padding:4px; border-radius:20px; box-shadow:0 3px 8px rgba(0,0,0,.15); }
+  .dif-btn { border:none; background:transparent; color:var(--card-txt); border-radius:16px; padding:6px 12px;
+    font-size:.8rem; font-weight:bold; font-family:inherit; cursor:pointer; transition:all .15s; }
+  .dif-btn.ativo { background:#a18cd1; color:#fff; }
+  .toggle-chip { display:flex; align-items:center; gap:6px; background:var(--painel); padding:6px 12px;
+    border-radius:20px; font-size:.8rem; font-weight:bold; color:var(--card-txt); cursor:pointer;
+    box-shadow:0 3px 8px rgba(0,0,0,.15); user-select:none; }
+  .toggle-chip .bolinha { width:16px; height:16px; border-radius:50%; background:#ccc; transition:background .2s; }
+  .toggle-chip.on .bolinha { background:#40c057; }
+
+  .roleta-container { position:relative; width:min(80vw,360px); height:min(80vw,360px); margin-bottom:6px; z-index:3; }
+  .ponteiro { position:absolute; top:-6px; left:50%; transform:translateX(-50%); width:0; height:0;
+    border-left:17px solid transparent; border-right:17px solid transparent; border-top:36px solid #ff3860;
+    z-index:10; filter:drop-shadow(0 3px 3px rgba(0,0,0,.4)); }
+  .ponteiro::after { content:''; position:absolute; top:-44px; left:-12px; width:24px; height:24px;
+    background:#ff3860; border-radius:50%; border:3px solid #fff; }
+  svg.roleta { width:100%; height:100%; border-radius:50%; box-shadow:0 0 0 9px #fff,0 12px 30px rgba(0,0,0,.35);
+    transition:transform 5.5s cubic-bezier(.12,.75,.15,1); }
+  body.dark svg.roleta { box-shadow:0 0 0 9px #444,0 12px 30px rgba(0,0,0,.5); }
+  .centro { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:54px; height:54px;
+    background:#fff; border-radius:50%; z-index:5; display:flex; align-items:center; justify-content:center;
+    font-size:1.6rem; box-shadow:0 3px 10px rgba(0,0,0,.25); }
+
+  .girar-btn { background:linear-gradient(145deg,#ff6b9d,#ff3860); color:#fff; border:4px solid #fff;
+    border-radius:50px; padding:13px 36px; font-size:clamp(1.05rem,4vw,1.35rem); font-weight:bold;
+    font-family:inherit; cursor:pointer; margin:12px 0;
+    box-shadow:0 6px 0 #c02850,0 10px 20px rgba(0,0,0,.25); transition:all .1s; letter-spacing:1px; position:relative; z-index:3; }
+  .girar-btn:active { transform:translateY(5px); box-shadow:0 1px 0 #c02850,0 4px 10px rgba(0,0,0,.25); }
+  .girar-btn:disabled { opacity:.5; cursor:not-allowed; }
+
+  .resultado { background:var(--card); color:var(--card-txt); border-radius:24px; padding:16px 24px;
+    text-align:center; box-shadow:0 8px 24px rgba(0,0,0,.2); max-width:92vw; display:none;
+    animation:pop .4s ease; margin-bottom:10px; z-index:3; position:relative; }
+  .resultado.show { display:block; }
+  @keyframes pop { 0%{transform:scale(.5);opacity:0;} 70%{transform:scale(1.12);} 100%{transform:scale(1);opacity:1;} }
+  .resultado .rotulo { font-size:.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:2px; }
+  .resultado .emoji-grande { font-size:clamp(3rem,12vw,4rem); line-height:1.1; margin:2px 0; }
+  .resultado .tema { font-size:clamp(1.4rem,7vw,2rem); font-weight:bold; color:#d6336c; }
+  body.dark .resultado .tema { color:#ff8fb3; }
+  .resultado .sugestao { margin-top:8px; font-size:.85rem; color:#7048b6; background:#f3f0ff;
+    border-radius:14px; padding:6px 12px; display:inline-block; }
+  body.dark .resultado .sugestao { background:#3a3a55; color:#c9b8f0; }
+
+  .timer-box { background:var(--painel); color:var(--card-txt); border-radius:24px; padding:14px;
+    text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.18); margin-bottom:16px; width:min(92vw,440px); z-index:3; position:relative; }
+  .timer-titulo { font-weight:bold; margin-bottom:9px; font-size:.92rem; }
+  .tempos { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:11px; }
+  .tempo-btn { border:3px solid #a18cd1; background:var(--card); color:#7048b6; border-radius:18px;
+    padding:8px 12px; font-size:.85rem; font-weight:bold; font-family:inherit; cursor:pointer; transition:all .15s; }
+  body.dark .tempo-btn { color:#c9b8f0; }
+  .tempo-btn:hover { transform:scale(1.08); }
+  .tempo-btn.ativo { background:#a18cd1; color:#fff; }
+  .tempo-btn.sugerido { border-color:#ff3860; box-shadow:0 0 0 3px rgba(255,56,96,.25); }
+  .display-timer { font-size:clamp(2.4rem,12vw,3.4rem); font-weight:bold; color:#7048b6;
+    font-variant-numeric:tabular-nums; margin:6px 0; letter-spacing:2px; }
+  body.dark .display-timer { color:#c9b8f0; }
+  .display-timer.alerta { color:#ff3860; animation:piscar .5s infinite; }
+  @keyframes piscar { 50%{opacity:.3;} }
+  .timer-controles { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .ctrl-btn { border:none; border-radius:16px; padding:10px 18px; font-size:.92rem; font-weight:bold;
+    font-family:inherit; cursor:pointer; color:#fff; transition:transform .1s; }
+  .ctrl-btn:active { transform:scale(.95); }
+  .btn-start { background:#40c057; box-shadow:0 4px 0 #2f9e44; }
+  .btn-pausa { background:#fab005; box-shadow:0 4px 0 #e8940b; }
+  .btn-reset { background:#868e96; box-shadow:0 4px 0 #5c636a; }
+
+  /* PLACAR */
+  .placar-box { background:var(--painel); color:var(--card-txt); border-radius:24px; padding:14px;
+    box-shadow:0 6px 18px rgba(0,0,0,.18); margin-bottom:16px; width:min(92vw,440px); z-index:3; position:relative; }
+  .placar-titulo { font-weight:bold; font-size:.95rem; text-align:center; margin-bottom:10px; }
+  .add-jogador { display:flex; gap:6px; margin-bottom:10px; }
+  .add-jogador input { flex:1; border:2px solid #a18cd1; border-radius:14px; padding:8px 12px;
+    font-family:inherit; font-size:.9rem; background:var(--card); color:var(--card-txt); }
+  .add-jogador button { border:none; background:#40c057; color:#fff; border-radius:14px; padding:8px 14px;
+    font-weight:bold; font-family:inherit; cursor:pointer; font-size:.9rem; }
+  .lista-jogadores { display:flex; flex-direction:column; gap:6px; }
+  .jogador-row { display:flex; align-items:center; gap:8px; background:var(--card); border-radius:14px; padding:6px 10px; }
+  .jogador-medalha { font-size:1.1rem; width:24px; text-align:center; }
+  .jogador-nome { flex:1; font-weight:bold; font-size:.92rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .jogador-pontos { font-weight:bold; font-size:1.05rem; color:#7048b6; min-width:28px; text-align:center; }
+  body.dark .jogador-pontos { color:#c9b8f0; }
+  .mini-btn { border:none; border-radius:10px; width:30px; height:30px; font-size:1.1rem; font-weight:bold;
+    cursor:pointer; color:#fff; }
+  .mini-mais { background:#40c057; } .mini-menos { background:#fab005; } .mini-x { background:#ff6b6b; font-size:.9rem; }
+  .placar-acoes { display:flex; gap:8px; justify-content:center; margin-top:10px; }
+  .placar-acoes button { border:none; border-radius:14px; padding:7px 14px; font-size:.82rem; font-weight:bold;
+    font-family:inherit; cursor:pointer; background:#868e96; color:#fff; }
+  .vazio-txt { text-align:center; color:var(--muted); font-size:.85rem; padding:6px; }
+
+  .dica { color:#5a4a2a; font-weight:bold; font-size:.8rem; text-align:center; max-width:520px;
+    margin-bottom:10px; z-index:3; position:relative; background:rgba(255,255,255,.4); padding:6px 12px; border-radius:14px; }
+  body.dark .dica { color:#e0d5c0; background:rgba(0,0,0,.25); }
+
+  .confete { position:fixed; width:12px; height:12px; top:-20px; z-index:999; pointer-events:none; }
+  @keyframes cairConfete { to { transform:translateY(105vh) rotate(720deg); } }
+
+  .base-chao { position:fixed; bottom:0; left:0; width:100%; height:78px; z-index:2; overflow:hidden;
+    border-top:4px dashed #fff; transition:background .8s; background:var(--base); }
+  .ondinha { position:fixed; bottom:76px; left:0; width:100%; height:10px; z-index:2;
+    background:repeating-linear-gradient(90deg,#7ec8f0 0 20px,#aee6f7 20px 40px); opacity:.55; transition:opacity .6s; }
+  .bichinho { position:absolute; bottom:6px; font-size:2rem; animation-name:andar; animation-timing-function:linear; animation-iteration-count:infinite; }
+  .bichinho.balanca { animation-name:andarBalanca; }
+  @keyframes andar { from{transform:translateX(-60px);} to{transform:translateX(110vw);} }
+  @keyframes andarBalanca { 0%{transform:translateX(-60px) translateY(0);} 25%{transform:translateX(27vw) translateY(-8px);}
+    50%{transform:translateX(55vw) translateY(0);} 75%{transform:translateX(82vw) translateY(-8px);} 100%{transform:translateX(110vw) translateY(0);} }
+
+  /* MODAL temas personalizados */
+  .modal-fundo { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:100; display:none;
+    align-items:center; justify-content:center; padding:16px; }
+  .modal-fundo.show { display:flex; }
+  .modal { background:var(--card); color:var(--card-txt); border-radius:22px; padding:20px; max-width:440px;
+    width:100%; max-height:85vh; overflow-y:auto; box-shadow:0 12px 40px rgba(0,0,0,.4); }
+  .modal h2 { font-size:1.2rem; margin-bottom:6px; color:#d6336c; }
+  body.dark .modal h2 { color:#ff8fb3; }
+  .modal p { font-size:.85rem; color:var(--muted); margin-bottom:12px; }
+  .modal label { font-size:.85rem; font-weight:bold; display:block; margin:8px 0 4px; }
+  .modal input, .modal textarea { width:100%; border:2px solid #a18cd1; border-radius:12px; padding:9px 12px;
+    font-family:inherit; font-size:.9rem; background:var(--card); color:var(--card-txt); }
+  .modal textarea { min-height:90px; resize:vertical; }
+  .modal-btns { display:flex; gap:8px; margin-top:14px; }
+  .modal-btns button { flex:1; border:none; border-radius:14px; padding:11px; font-weight:bold; font-family:inherit;
+    cursor:pointer; font-size:.92rem; color:#fff; }
+  .btn-salvar { background:#40c057; } .btn-fechar { background:#868e96; }
+  .custom-lista { margin-top:12px; display:flex; flex-direction:column; gap:6px; }
+  .custom-item { display:flex; align-items:center; justify-content:space-between; background:var(--painel);
+    border-radius:12px; padding:8px 12px; font-size:.88rem; }
+  .custom-item button { border:none; background:#ff6b6b; color:#fff; border-radius:10px; padding:5px 10px; cursor:pointer; font-family:inherit; }
+
+  @media (max-width:600px){
+    .cat-btn { padding:7px 10px; font-size:.76rem; }
+    .sol { width:46px; height:46px; top:12px; right:60px; }
+    h1 { margin-top:52px; }
+  }
+  @media (max-width:380px){
+    .cat-btn { font-size:.7rem; padding:6px 8px; }
+    .tempo-btn { padding:7px 9px; font-size:.78rem; }
+  }
+  @media (orientation:landscape) and (max-height:520px){
+    .roleta-container { width:min(42vh,280px); height:min(42vh,280px); }
+    h1 { margin-top:46px; }
+  }
+</style>
+</head>
+<body>
+
+  <div id="cenario"></div>
+  <div class="sol" id="sol"></div>
+
+  <div class="topo">
+    <button class="icon-btn" id="btnTema" title="Modo escuro/claro">🌙</button>
+    <button class="icon-btn" id="btnSom" title="Ligar/desligar som">🔊</button>
+    <button class="icon-btn" id="btnFull" title="Tela cheia">⛶</button>
+    <button class="icon-btn" id="btnCustom" title="Meus temas">✏️</button>
+    <button class="icon-btn" id="btnInstalar" title="Instalar app" style="display:none;">📲</button>
+  </div>
+
+  <h1>🎨 Roleta Speed Draw 🎨</h1>
+  <p class="subtitle">Gire, sorteie um tema e desenhe o mais rápido que puder! ✏️</p>
+
+  <div class="categorias" id="categorias"></div>
+
+  <div class="opcoes-linha">
+    <div class="dif-group" id="difGroup">
+      <button class="dif-btn ativo" data-dif="0">Todos</button>
+      <button class="dif-btn" data-dif="1">😊 Fácil</button>
+      <button class="dif-btn" data-dif="2">🙂 Médio</button>
+      <button class="dif-btn" data-dif="3">😎 Difícil</button>
+    </div>
+    <div class="toggle-chip on" id="chipSemRepetir"><span class="bolinha"></span>🔄 Sem repetir</div>
+  </div>
+
+  <div class="roleta-container">
+    <div class="ponteiro"></div>
+    <svg class="roleta" id="roleta" viewBox="0 0 100 100"></svg>
+    <div class="centro" id="centroEmoji">🎯</div>
+  </div>
+
+  <button class="girar-btn" id="girarBtn">GIRAR! 🎲</button>
+
+  <div class="resultado" id="resultado">
+    <div class="rotulo">Desenhe:</div>
+    <div class="emoji-grande" id="emojiResultado"></div>
+    <div class="tema" id="temaResultado"></div>
+    <div class="sugestao" id="sugestaoTempo"></div>
+  </div>
+
+  <div class="timer-box">
+    <div class="timer-titulo">⏱️ Escolha o tempo de desenho:</div>
+    <div class="tempos" id="tempos"></div>
+    <div class="display-timer" id="displayTimer">00:00</div>
+    <div class="timer-controles">
+      <button class="ctrl-btn btn-start" id="startBtn">▶ Começar</button>
+      <button class="ctrl-btn btn-pausa" id="pausaBtn">⏸ Pausar</button>
+      <button class="ctrl-btn btn-reset" id="resetBtn">↻ Zerar</button>
+    </div>
+  </div>
+
+  <div class="placar-box">
+    <div class="placar-titulo">🏆 Placar</div>
+    <div class="add-jogador">
+      <input type="text" id="nomeJogador" placeholder="Nome da criança..." maxlength="14">
+      <button id="addJogadorBtn">+ Add</button>
+    </div>
+    <div class="lista-jogadores" id="listaJogadores"></div>
+    <div class="placar-acoes">
+      <button id="zerarPontosBtn">Zerar pontos</button>
+      <button id="limparJogadoresBtn">Remover todos</button>
+    </div>
+  </div>
+
+  <p class="dica">💡 Sorteie um tema, escolha o tempo e todos desenham juntos. Quem acertar ganha ponto no placar! 🖍️</p>
+
+  <div class="ondinha" id="ondinha"></div>
+  <div class="base-chao" id="baseChao"></div>
+
+  <!-- MODAL temas personalizados -->
+  <div class="modal-fundo" id="modalCustom">
+    <div class="modal">
+      <h2>✏️ Meus temas</h2>
+      <p>Crie uma categoria com os temas da sua turma. Fica salva neste aparelho.</p>
+      <label>Nome da categoria (com um emoji, se quiser):</label>
+      <input type="text" id="customNome" placeholder="Ex: 🐾 Bichos da fazenda" maxlength="30">
+      <label>Temas (um por linha):</label>
+      <textarea id="customTemas" placeholder="Vaca&#10;Galinha&#10;Porco&#10;Cavalo"></textarea>
+      <div class="modal-btns">
+        <button class="btn-salvar" id="salvarCustomBtn">Salvar categoria</button>
+        <button class="btn-fechar" id="fecharCustomBtn">Fechar</button>
+      </div>
+      <div class="custom-lista" id="customLista"></div>
+    </div>
+  </div>
+
+<script>
+// ==================== ARMAZENAMENTO SEGURO (offline) ====================
+const Store = (() => {
+  let mem = {};
+  let ok = false;
+  try { localStorage.setItem("__t","1"); localStorage.removeItem("__t"); ok = true; } catch(e){ ok = false; }
+  return {
+    get(k, def){ try { if(ok){ const v=localStorage.getItem(k); return v===null?def:JSON.parse(v); } return k in mem?mem[k]:def; } catch(e){ return def; } },
+    set(k, v){ try { if(ok){ localStorage.setItem(k, JSON.stringify(v)); } else { mem[k]=v; } } catch(e){ mem[k]=v; } }
+  };
+})();
+
+// ==================== TEMAS (com dificuldade d: 1 fácil, 2 médio, 3 difícil) ====================
+const CATEGORIAS = {
+  "🐶 Animais": { dif:1, temas:[
+    {n:"Cachorro",e:"🐶",d:1},{n:"Gato",e:"🐱",d:1},{n:"Peixe",e:"🐟",d:1},{n:"Coelho",e:"🐰",d:1},
+    {n:"Leão",e:"🦁",d:2},{n:"Elefante",e:"🐘",d:2},{n:"Coruja",e:"🦉",d:2},{n:"Pinguim",e:"🐧",d:2},
+    {n:"Girafa",e:"🦒",d:3},{n:"Borboleta",e:"🦋",d:3},{n:"Tartaruga",e:"🐢",d:3},{n:"Abelha",e:"🐝",d:3}
+  ]},
+  "🍕 Comidas": { dif:1, temas:[
+    {n:"Maçã",e:"🍎",d:1},{n:"Banana",e:"🍌",d:1},{n:"Sorvete",e:"🍦",d:1},{n:"Pizza",e:"🍕",d:1},
+    {n:"Hambúrguer",e:"🍔",d:2},{n:"Bolo",e:"🎂",d:2},{n:"Melancia",e:"🍉",d:2},{n:"Donut",e:"🍩",d:2},
+    {n:"Cupcake",e:"🧁",d:3},{n:"Abacaxi",e:"🍍",d:3},{n:"Sushi",e:"🍣",d:3},{n:"Taco",e:"🌮",d:3}
+  ]},
+  "🚀 Espacial": { dif:2, temas:[
+    {n:"Estrela",e:"⭐",d:1},{n:"Lua",e:"🌙",d:1},{n:"Sol",e:"☀️",d:1},{n:"Foguete",e:"🚀",d:2},
+    {n:"Disco voador",e:"🛸",d:2},{n:"Planeta Saturno",e:"🪐",d:2},{n:"Cometa",e:"☄️",d:2},{n:"Alienígena",e:"👽",d:2},
+    {n:"Astronauta",e:"👨‍🚀",d:3},{n:"Galáxia",e:"🌌",d:3},{n:"Satélite",e:"🛰️",d:3},{n:"Telescópio",e:"🔭",d:3}
+  ]},
+  "🏰 Fantasia": { dif:2, temas:[
+    {n:"Coroa mágica",e:"👑",d:1},{n:"Fantasma",e:"👻",d:1},{n:"Robô",e:"🤖",d:2},{n:"Castelo",e:"🏰",d:2},
+    {n:"Unicórnio",e:"🦄",d:2},{n:"Fada",e:"🧚",d:2},{n:"Bruxa",e:"🧙‍♀️",d:3},{n:"Sereia",e:"🧜‍♀️",d:3},
+    {n:"Dragão",e:"🐉",d:3},{n:"Mago",e:"🧙",d:3},{n:"Super-herói",e:"🦸",d:3},{n:"Pirata",e:"🏴‍☠️",d:3}
+  ]},
+  "🌳 Natureza": { dif:1, temas:[
+    {n:"Sol",e:"☀️",d:1},{n:"Nuvem",e:"☁️",d:1},{n:"Flor",e:"🌸",d:1},{n:"Árvore",e:"🌳",d:1},
+    {n:"Arco-íris",e:"🌈",d:2},{n:"Montanha",e:"⛰️",d:2},{n:"Cacto",e:"🌵",d:2},{n:"Cogumelo",e:"🍄",d:2},
+    {n:"Vulcão",e:"🌋",d:3},{n:"Palmeira",e:"🌴",d:3},{n:"Concha",e:"🐚",d:3},{n:"Estrela do mar",e:"⭐",d:3}
+  ]},
+  "🌊 Praia & Mar": { dif:1, temas:[
+    {n:"Peixe",e:"🐠",d:1},{n:"Concha",e:"🐚",d:1},{n:"Barco",e:"⛵",d:1},{n:"Guarda-sol",e:"⛱️",d:2},
+    {n:"Caranguejo",e:"🦀",d:2},{n:"Golfinho",e:"🐬",d:2},{n:"Tubarão",e:"🦈",d:2},{n:"Baleia",e:"🐳",d:2},
+    {n:"Polvo",e:"🐙",d:3},{n:"Castelo de areia",e:"🏖️",d:3},{n:"Água-viva",e:"🎐",d:3},{n:"Cavalo-marinho",e:"🌊",d:3}
+  ]},
+  "🚗 Veículos": { dif:2, temas:[
+    {n:"Carro",e:"🚗",d:1},{n:"Balão",e:"🎈",d:1},{n:"Barco",e:"⛵",d:1},{n:"Bicicleta",e:"🚲",d:2},
+    {n:"Ônibus",e:"🚌",d:2},{n:"Trem",e:"🚂",d:2},{n:"Avião",e:"✈️",d:2},{n:"Moto",e:"🏍️",d:2},
+    {n:"Helicóptero",e:"🚁",d:3},{n:"Trator",e:"🚜",d:3},{n:"Caminhão",e:"🚚",d:3},{n:"Foguete",e:"🚀",d:3}
+  ]},
+  "⚽ Esportes": { dif:2, temas:[
+    {n:"Futebol",e:"⚽",d:1},{n:"Basquete",e:"🏀",d:1},{n:"Tênis",e:"🎾",d:1},{n:"Vôlei",e:"🏐",d:1},
+    {n:"Troféu",e:"🏆",d:2},{n:"Boliche",e:"🎳",d:2},{n:"Skate",e:"🛹",d:2},{n:"Patins",e:"⛸️",d:2},
+    {n:"Surf",e:"🏄",d:3},{n:"Natação",e:"🏊",d:3},{n:"Ciclismo",e:"🚴",d:3},{n:"Boxe",e:"🥊",d:3}
+  ]},
+  "😀 Emoções": { dif:3, temas:[
+    {n:"Rosto feliz",e:"😀",d:1},{n:"Legal",e:"😎",d:1},{n:"Piscando",e:"😉",d:1},{n:"Dormindo",e:"😴",d:2},
+    {n:"Bravo",e:"😡",d:2},{n:"Apaixonado",e:"😍",d:2},{n:"Surpreso",e:"😲",d:2},{n:"Chorando",e:"😢",d:2},
+    {n:"Chorando de rir",e:"😂",d:3},{n:"Assustado",e:"😱",d:3},{n:"Pensando",e:"🤔",d:3},{n:"Doente",e:"🤒",d:3}
+  ]},
+  "🎃 Festas": { dif:2, temas:[
+    {n:"Balão",e:"🎈",d:1},{n:"Presente",e:"🎁",d:1},{n:"Coração",e:"❤️",d:1},{n:"Bolo de festa",e:"🎂",d:2},
+    {n:"Árvore de Natal",e:"🎄",d:2},{n:"Abóbora",e:"🎃",d:2},{n:"Ovo de Páscoa",e:"🥚",d:2},{n:"Chapéu de festa",e:"🥳",d:2},
+    {n:"Papai Noel",e:"🎅",d:3},{n:"Fogos",e:"🎆",d:3},{n:"Fantasma",e:"👻",d:3},{n:"Confete",e:"🎉",d:3}
+  ]}
+};
+
+const CENARIOS = {
+  "🐶 Animais":   { grad:["#aee1a0","#c8efb0","#dff5c0","#a9d977"], part:["🐾","🍃","🌿","🦋"], modo:"subir", base:"#7cb342", bichos:["🐶","🐰","🐢","🐕","🐿️"], sol:true, onda:false },
+  "🍕 Comidas":   { grad:["#ffe0b2","#ffd6a0","#ffcc99","#ffb877"], part:["🍕","🍩","🍦","🍓","🧁"], modo:"subir", base:"#e8a87c", bichos:["🍔","🍟","🌭","🍿"], sol:true, onda:false },
+  "🚀 Espacial":  { grad:["#0b0033","#1a0b4d","#2d1b69","#3d2680"], part:["⭐","✨","🌟","🪐","💫"], modo:"estrelas", base:"#4a4a5e", bichos:["🚀","🛸","👽","🤖","👨‍🚀"], sol:false, onda:false },
+  "🏰 Fantasia":  { grad:["#b39ddb","#c8a2e0","#e1bee7","#f3d5f0"], part:["✨","⭐","💫","🌟","🦋"], modo:"subir", base:"#9575cd", bichos:["🦄","🐉","🧚","🧙","👑"], sol:true, onda:false },
+  "🌳 Natureza":  { grad:["#81d4fa","#a5e0b0","#c5e8a0","#a9d977"], part:["🍃","🌸","🌼","🦋","🌿"], modo:"descer", base:"#66bb6a", bichos:["🐛","🐌","🦔","🐿️","🐞"], sol:true, onda:false },
+  "🌊 Praia & Mar":{ grad:["#4fc3f7","#81d4fa","#b3e5fc","#f4d58d"], part:["☁️","🕊️","🪁","☀️"], modo:"atravessar", base:"#f4d58d", bichos:["🦀","🐢","🦆","🐚","🦀"], sol:true, onda:true },
+  "🚗 Veículos":  { grad:["#90caf9","#b3d9ff","#d0e8ff","#c8c8c8"], part:["☁️","🚁","✈️","🎈"], modo:"atravessar", base:"#616161", bichos:["🚗","🚌","🚚","🏍️","🚲"], sol:true, onda:false },
+  "⚽ Esportes":  { grad:["#90caf9","#a5d6f7","#c5e1a5","#81c784"], part:["⚽","🏀","🎾","🏐","🏆"], modo:"subir", base:"#4caf50", bichos:["⚽","🏀","🎾","🛹","⛸️"], sol:true, onda:false },
+  "😀 Emoções":   { grad:["#fff59d","#ffe082","#ffd54f","#ffca28"], part:["😀","😂","😍","😎","🤔"], modo:"subir", base:"#ffb300", bichos:["😀","😂","😎","🥳","😴"], sol:true, onda:false },
+  "🎃 Festas":    { grad:["#ce93d8","#f48fb1","#ffab91","#ffcc80"], part:["🎉","🎈","🎊","⭐","🎁"], modo:"descer", base:"#ab47bc", bichos:["🎁","🎈","🥳","🎂","🎃"], sol:false, onda:false }
+};
+const CENARIO_PADRAO = { grad:["#7ec8f0","#aee6f7","#f7e9b0","#f4d58d"], part:["⭐","✨","🎨","✏️"], modo:"subir", base:"#e6b866", bichos:["🐶","🐱","🦀","🐢"], sol:true, onda:false };
+
+const TEMPO_SUGERIDO = { 1:300, 2:600, 3:900 };
+const TEMPOS = [
+  {label:"1 min",seg:60},{label:"2 min",seg:120},{label:"5 min",seg:300},
+  {label:"10 min",seg:600},{label:"15 min",seg:900},{label:"20 min",seg:1200}
+];
+const CORES = ["#ff6b6b","#feca57","#48dbfb","#1dd1a1","#ff9ff3","#54a0ff","#5f27cd","#ff9f43","#00d2d3","#f368e0","#ee5253","#0abde3"];
+
+// ==================== ESTADO ====================
+let categoriasCustom = Store.get("customCats", {}); // {nome:{dif,temas:[{n,e,d}]}}
+function todasCategorias(){ return Object.assign({}, CATEGORIAS, categoriasCustom); }
+
+let categoriaAtual = Object.keys(CATEGORIAS)[0];
+let girando=false, anguloAtual=0;
+let dificuldade = 0; // 0 = todos
+let semRepetir = Store.get("semRepetir", true);
+let jaSorteados = {}; // por categoria -> Set de índices já usados (guardado como array)
+let somLigado = Store.get("som", true);
+
+// ==================== CATEGORIAS UI ====================
+const catDiv = document.getElementById("categorias");
+function montarCategorias(){
+  catDiv.innerHTML="";
+  const cats = todasCategorias();
+  Object.keys(cats).forEach((cat)=>{
+    const b=document.createElement("button");
+    b.className="cat-btn"+(cat===categoriaAtual?" ativo":"");
+    b.textContent=cat;
+    b.onclick=()=>{
+      categoriaAtual=cat;
+      document.querySelectorAll(".cat-btn").forEach(x=>x.classList.remove("ativo"));
+      b.classList.add("ativo");
+      anguloAtual=0; svg.style.transition="none"; svg.style.transform="rotate(0deg)";
+      desenharRoleta(); marcarTempoSugerido();
+      document.getElementById("resultado").classList.remove("show");
+      aplicarCenario(cat);
+    };
+    catDiv.appendChild(b);
+  });
+}
+montarCategorias();
+
+// filtra temas por dificuldade
+function temasFiltrados(cat){
+  const t = todasCategorias()[cat].temas;
+  if(dificuldade===0) return t;
+  const f = t.filter(x=>(x.d||2)===dificuldade);
+  return f.length>0 ? f : t; // se filtro esvaziar, mostra todos
+}
+
+// ==================== ROLETA ====================
+const svg=document.getElementById("roleta");
+function desenharRoleta(){
+  const temas=temasFiltrados(categoriaAtual), n=temas.length;
+  svg.innerHTML=""; const cx=50,cy=50,r=50,passo=360/n;
+  for(let i=0;i<n;i++){
+    const a1=(passo*i-90)*Math.PI/180, a2=(passo*(i+1)-90)*Math.PI/180;
+    const x1=cx+r*Math.cos(a1),y1=cy+r*Math.sin(a1),x2=cx+r*Math.cos(a2),y2=cy+r*Math.sin(a2);
+    const largo=passo>180?1:0;
+    const p=document.createElementNS("http://www.w3.org/2000/svg","path");
+    p.setAttribute("d",`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largo},1 ${x2},${y2} Z`);
+    p.setAttribute("fill",CORES[i%CORES.length]); p.setAttribute("stroke","#fff"); p.setAttribute("stroke-width","0.5");
+    svg.appendChild(p);
+    const meio=(passo*i+passo/2-90)*Math.PI/180, tr=34;
+    const tx=cx+tr*Math.cos(meio),ty=cy+tr*Math.sin(meio);
+    const t=document.createElementNS("http://www.w3.org/2000/svg","text");
+    t.setAttribute("x",tx); t.setAttribute("y",ty); t.setAttribute("font-size","6");
+    t.setAttribute("text-anchor","middle"); t.setAttribute("dominant-baseline","central");
+    t.textContent=temas[i].e||"🎨"; svg.appendChild(t);
+  }
+}
+
+// controle "sem repetir"
+function proximoIndice(n){
+  if(!semRepetir) return Math.floor(Math.random()*n);
+  const chave=categoriaAtual+"|"+dificuldade+"|"+n;
+  let usados = jaSorteados[chave] || [];
+  if(usados.length>=n){ usados=[]; } // esgotou -> recomeça
+  const disp=[]; for(let i=0;i<n;i++) if(!usados.includes(i)) disp.push(i);
+  const idx=disp[Math.floor(Math.random()*disp.length)];
+  usados.push(idx); jaSorteados[chave]=usados;
+  return idx;
+}
+
+document.getElementById("girarBtn").onclick=()=>{
+  if(girando) return; girando=true;
+  document.getElementById("girarBtn").disabled=true;
+  document.getElementById("resultado").classList.remove("show");
+  const temas=temasFiltrados(categoriaAtual), n=temas.length, passo=360/n;
+  const idx=proximoIndice(n);
+  const voltas=5+Math.floor(Math.random()*3);
+  const jitter=(Math.random()*0.6-0.3)*passo;
+  const baseAtual=((anguloAtual%360)+360)%360;
+  const alvo=voltas*360-(passo*idx+passo/2)+jitter;
+  const anguloFinal=anguloAtual+(voltas*360)+(((alvo-baseAtual)%360)+360)%360;
+  anguloAtual=anguloFinal;
+  svg.style.transition="transform 5.5s cubic-bezier(.12,.75,.15,1)";
+  svg.style.transform=`rotate(${anguloFinal}deg)`;
+  somGirar();
+  setTimeout(()=>{
+    const tema=temas[idx];
+    document.getElementById("emojiResultado").textContent=tema.e||"🎨";
+    document.getElementById("temaResultado").textContent=tema.n;
+    const seg=TEMPO_SUGERIDO[todasCategorias()[categoriaAtual].dif||2];
+    document.getElementById("sugestaoTempo").textContent="⏱️ Tempo sugerido: "+TEMPOS.find(t=>t.seg===seg).label;
+    document.getElementById("centroEmoji").textContent=tema.e||"🎨";
+    document.getElementById("resultado").classList.add("show");
+    marcarTempoSugerido(); lancarConfete(); somTada();
+    girando=false; document.getElementById("girarBtn").disabled=false;
+  },5600);
+};
+
+function lancarConfete(){
+  for(let i=0;i<45;i++){
+    const c=document.createElement("div"); c.className="confete";
+    c.style.left=Math.random()*100+"vw"; c.style.background=CORES[Math.floor(Math.random()*CORES.length)];
+    c.style.borderRadius=Math.random()>0.5?"50%":"2px";
+    const dur=2+Math.random()*2; c.style.animation=`cairConfete ${dur}s linear forwards`;
+    c.style.animationDelay=Math.random()*0.5+"s"; document.body.appendChild(c);
+    setTimeout(()=>c.remove(),(dur+0.6)*1000);
+  }
+}
+
+// ==================== DIFICULDADE ====================
+document.getElementById("difGroup").addEventListener("click",(ev)=>{
+  const b=ev.target.closest(".dif-btn"); if(!b) return;
+  dificuldade=Number(b.dataset.dif);
+  document.querySelectorAll(".dif-btn").forEach(x=>x.classList.remove("ativo"));
+  b.classList.add("ativo");
+  anguloAtual=0; svg.style.transition="none"; svg.style.transform="rotate(0deg)";
+  desenharRoleta();
+  document.getElementById("resultado").classList.remove("show");
+});
+
+// ==================== SEM REPETIR ====================
+const chipSR=document.getElementById("chipSemRepetir");
+function refletirSR(){ chipSR.classList.toggle("on", semRepetir); }
+chipSR.onclick=()=>{ semRepetir=!semRepetir; Store.set("semRepetir",semRepetir); jaSorteados={}; refletirSR(); };
+refletirSR();
+
+// ==================== TIMER ====================
+let tempoTotal=0,tempoRestante=0,intervalo=null,rodando=false;
+const display=document.getElementById("displayTimer"), temposDiv=document.getElementById("tempos");
+TEMPOS.forEach(t=>{
+  const b=document.createElement("button"); b.className="tempo-btn"; b.textContent=t.label; b.dataset.seg=t.seg;
+  b.onclick=()=>{ document.querySelectorAll(".tempo-btn").forEach(x=>x.classList.remove("ativo"));
+    b.classList.add("ativo"); tempoTotal=t.seg; tempoRestante=t.seg; pararTimer(); atualizarDisplay(); };
+  temposDiv.appendChild(b);
+});
+function marcarTempoSugerido(){
+  const seg=TEMPO_SUGERIDO[todasCategorias()[categoriaAtual].dif||2];
+  document.querySelectorAll(".tempo-btn").forEach(b=>b.classList.toggle("sugerido",Number(b.dataset.seg)===seg));
+}
+marcarTempoSugerido();
+function formatar(s){const m=Math.floor(s/60),g=s%60;return String(m).padStart(2,"0")+":"+String(g).padStart(2,"0");}
+function atualizarDisplay(){display.textContent=formatar(tempoRestante);display.classList.toggle("alerta",tempoRestante<=10&&tempoRestante>0&&rodando);}
+function tick(){ if(tempoRestante>0){tempoRestante--;atualizarDisplay();
+  if(tempoRestante===5) somTique();
+  if(tempoRestante===0){pararTimer();display.textContent="⏰ TEMPO!";display.classList.add("alerta");lancarConfete();somFanfarra();}}}
+function pararTimer(){clearInterval(intervalo);rodando=false;display.classList.remove("alerta");}
+document.getElementById("startBtn").onclick=()=>{
+  if(tempoRestante<=0){ if(tempoTotal>0){tempoRestante=tempoTotal;} else {alert("Escolha um tempo primeiro! 😊");return;} }
+  if(rodando) return; rodando=true; atualizarDisplay(); intervalo=setInterval(tick,1000);
+};
+document.getElementById("pausaBtn").onclick=pararTimer;
+document.getElementById("resetBtn").onclick=()=>{pararTimer();tempoRestante=tempoTotal;atualizarDisplay();};
+atualizarDisplay();
+
+// ==================== PLACAR ====================
+let jogadores = Store.get("jogadores", []); // [{nome,pontos}]
+const listaJog=document.getElementById("listaJogadores");
+function salvarJog(){ Store.set("jogadores", jogadores); }
+function medalha(pos,pontosIguais){ if(pontosIguais) return "•"; return pos===0?"🥇":pos===1?"🥈":pos===2?"🥉":"•"; }
+function renderPlacar(){
+  if(jogadores.length===0){ listaJog.innerHTML='<div class="vazio-txt">Adicione as crianças para marcar pontos 🎯</div>'; return; }
+  const ord=[...jogadores].sort((a,b)=>b.pontos-a.pontos);
+  const todosZero = ord.every(j=>j.pontos===0);
+  listaJog.innerHTML="";
+  ord.forEach((j,pos)=>{
+    const row=document.createElement("div"); row.className="jogador-row";
+    row.innerHTML=`<span class="jogador-medalha">${medalha(pos,todosZero)}</span>
+      <span class="jogador-nome">${escapar(j.nome)}</span>
+      <button class="mini-btn mini-menos">−</button>
+      <span class="jogador-pontos">${j.pontos}</span>
+      <button class="mini-btn mini-mais">+</button>
+      <button class="mini-btn mini-x">✕</button>`;
+    const real=jogadores.find(x=>x===j);
+    row.querySelector(".mini-mais").onclick=()=>{ real.pontos++; salvarJog(); renderPlacar(); somPonto(); };
+    row.querySelector(".mini-menos").onclick=()=>{ if(real.pontos>0)real.pontos--; salvarJog(); renderPlacar(); };
+    row.querySelector(".mini-x").onclick=()=>{ jogadores=jogadores.filter(x=>x!==real); salvarJog(); renderPlacar(); };
+    listaJog.appendChild(row);
+  });
+}
+function escapar(s){ const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+document.getElementById("addJogadorBtn").onclick=addJog;
+document.getElementById("nomeJogador").addEventListener("keydown",e=>{ if(e.key==="Enter") addJog(); });
+function addJog(){
+  const inp=document.getElementById("nomeJogador"); const nome=inp.value.trim();
+  if(!nome) return; jogadores.push({nome,pontos:0}); inp.value=""; salvarJog(); renderPlacar();
+}
+document.getElementById("zerarPontosBtn").onclick=()=>{ jogadores.forEach(j=>j.pontos=0); salvarJog(); renderPlacar(); };
+document.getElementById("limparJogadoresBtn").onclick=()=>{ if(confirm("Remover todos os jogadores?")){ jogadores=[]; salvarJog(); renderPlacar(); } };
+renderPlacar();
+
+// ==================== SONS (Web Audio, offline) ====================
+let AC=null;
+function ac(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
+function nota(freq,inicio,dur,tipo="triangle",vol=0.25){
+  const c=ac(); if(!c||!somLigado) return;
+  const o=c.createOscillator(),g=c.createGain(); o.connect(g); g.connect(c.destination);
+  o.type=tipo; o.frequency.value=freq;
+  g.gain.setValueAtTime(vol,c.currentTime+inicio);
+  g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+inicio+dur);
+  o.start(c.currentTime+inicio); o.stop(c.currentTime+inicio+dur);
+}
+function somGirar(){ // tique-taque subindo durante o giro
+  if(!somLigado) return; const c=ac(); if(!c) return;
+  for(let i=0;i<14;i++){ nota(500+i*15, i*0.35, 0.05, "square", 0.12); }
+}
+function somTada(){ nota(523,0,0.15); nota(659,0.12,0.15); nota(784,0.24,0.25); }
+function somPonto(){ nota(880,0,0.1,"sine",0.3); nota(1174,0.08,0.12,"sine",0.3); }
+function somTique(){ for(let i=0;i<5;i++) nota(700,i*0.9,0.08,"square",0.2); }
+function somFanfarra(){ [523,659,784,1046].forEach((f,i)=>nota(f,i*0.15,0.3,"triangle",0.3)); nota(1046,0.6,0.5,"triangle",0.3); }
+
+const btnSom=document.getElementById("btnSom");
+function refletirSom(){ btnSom.textContent=somLigado?"🔊":"🔇"; }
+btnSom.onclick=()=>{ somLigado=!somLigado; Store.set("som",somLigado); refletirSom(); if(somLigado){ ac(); somPonto(); } };
+refletirSom();
+
+// ==================== MODO ESCURO ====================
+const btnTema=document.getElementById("btnTema");
+let escuro = Store.get("escuro", false);
+function aplicarTema(){ document.body.classList.toggle("dark",escuro); btnTema.textContent=escuro?"☀️":"🌙";
+  document.querySelector('meta[name=theme-color]').setAttribute("content", escuro?"#2a2a3e":"#ff3860"); }
+btnTema.onclick=()=>{ escuro=!escuro; Store.set("escuro",escuro); aplicarTema(); };
+aplicarTema();
+
+// ==================== TELA CHEIA ====================
+document.getElementById("btnFull").onclick=()=>{
+  const el=document.documentElement;
+  if(!document.fullscreenElement){ (el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el); }
+  else { (document.exitFullscreen||document.webkitExitFullscreen||function(){}).call(document); }
+};
+
+// ==================== TEMAS PERSONALIZADOS ====================
+const modal=document.getElementById("modalCustom");
+document.getElementById("btnCustom").onclick=()=>{ renderCustomLista(); modal.classList.add("show"); };
+document.getElementById("fecharCustomBtn").onclick=()=>modal.classList.remove("show");
+modal.addEventListener("click",e=>{ if(e.target===modal) modal.classList.remove("show"); });
+document.getElementById("salvarCustomBtn").onclick=()=>{
+  const nome=document.getElementById("customNome").value.trim();
+  const linhas=document.getElementById("customTemas").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  if(!nome){ alert("Dê um nome para a categoria 😊"); return; }
+  if(linhas.length<2){ alert("Escreva pelo menos 2 temas (um por linha)."); return; }
+  const temas=linhas.map(n=>({n, e:"🎨", d:2}));
+  categoriasCustom[nome]={dif:2,temas};
+  Store.set("customCats",categoriasCustom);
+  document.getElementById("customNome").value=""; document.getElementById("customTemas").value="";
+  montarCategorias(); renderCustomLista();
+  alert("Categoria \""+nome+"\" salva! Ela aparece na lista de categorias. 🎉");
+};
+function renderCustomLista(){
+  const cont=document.getElementById("customLista"); cont.innerHTML="";
+  const nomes=Object.keys(categoriasCustom);
+  if(nomes.length===0){ cont.innerHTML='<div class="vazio-txt">Nenhuma categoria criada ainda.</div>'; return; }
+  nomes.forEach(nome=>{
+    const item=document.createElement("div"); item.className="custom-item";
+    item.innerHTML=`<span>${escapar(nome)} (${categoriasCustom[nome].temas.length} temas)</span>`;
+    const del=document.createElement("button"); del.textContent="Excluir";
+    del.onclick=()=>{ if(confirm("Excluir \""+nome+"\"?")){ delete categoriasCustom[nome]; Store.set("customCats",categoriasCustom);
+      if(categoriaAtual===nome){ categoriaAtual=Object.keys(CATEGORIAS)[0]; }
+      montarCategorias(); desenharRoleta(); aplicarCenario(categoriaAtual); renderCustomLista(); } };
+    item.appendChild(del); cont.appendChild(item);
+  });
+}
+
+// ==================== CENÁRIO ANIMADO ====================
+const cenarioEl=document.getElementById("cenario");
+const baseChao=document.getElementById("baseChao");
+const ondinha=document.getElementById("ondinha");
+const solEl=document.getElementById("sol");
+let spawnParticulaId=null, spawnBichoId=null;
+function limparCenario(){ if(spawnParticulaId)clearInterval(spawnParticulaId); if(spawnBichoId)clearInterval(spawnBichoId);
+  cenarioEl.innerHTML=""; baseChao.querySelectorAll(".bichinho").forEach(x=>x.remove()); }
+function aplicarCenario(cat){
+  const c=CENARIOS[cat]||CENARIO_PADRAO; limparCenario();
+  document.body.style.setProperty("--grad1",c.grad[0]); document.body.style.setProperty("--grad2",c.grad[1]);
+  document.body.style.setProperty("--grad3",c.grad[2]); document.body.style.setProperty("--grad4",c.grad[3]);
+  baseChao.style.background=c.base; ondinha.style.opacity=c.onda?"0.55":"0"; solEl.style.opacity=c.sol?"1":"0";
+  if(c.modo==="estrelas"){
+    for(let i=0;i<40;i++){ const s=document.createElement("div"); s.className="estrela-fixa";
+      s.style.fontSize=(8+Math.random()*18)+"px"; s.style.left=Math.random()*100+"vw"; s.style.top=Math.random()*80+"vh";
+      s.style.animationDuration=(1.5+Math.random()*2.5)+"s"; s.style.animationDelay=(Math.random()*2)+"s";
+      s.textContent=c.part[Math.floor(Math.random()*c.part.length)]; cenarioEl.appendChild(s); }
+    spawnParticulaId=setInterval(()=>spawnParticula(c),1400);
+  } else { spawnParticulaId=setInterval(()=>spawnParticula(c),900);
+    for(let i=0;i<6;i++) setTimeout(()=>spawnParticula(c),i*400); }
+  for(let i=0;i<3;i++) setTimeout(()=>spawnBicho(c),i*1400);
+  spawnBichoId=setInterval(()=>spawnBicho(c),2600);
+}
+function spawnParticula(c){
+  const el=document.createElement("div"); el.className="particula";
+  el.textContent=c.part[Math.floor(Math.random()*c.part.length)]; el.style.fontSize=(1.1+Math.random()*1.6)+"rem";
+  const dur=6+Math.random()*8;
+  if(c.modo==="atravessar"){ el.style.top=(Math.random()*45)+"vh"; el.style.left="0"; el.style.animation=`atravessar ${dur}s linear forwards`; }
+  else if(c.modo==="descer"){ el.style.left=(Math.random()*100)+"vw"; el.style.top="0"; el.style.animation=`descer ${dur}s linear forwards`; }
+  else { el.style.left=(Math.random()*100)+"vw"; el.style.bottom="0"; el.style.animation=`subir ${dur}s linear forwards`; }
+  cenarioEl.appendChild(el); setTimeout(()=>el.remove(),dur*1000+200);
+}
+function spawnBicho(c){
+  const el=document.createElement("div"); el.className="bichinho"+(Math.random()>0.5?" balanca":"");
+  el.textContent=c.bichos[Math.floor(Math.random()*c.bichos.length)];
+  const dur=8+Math.random()*10; el.style.animationDuration=dur+"s"; el.style.fontSize=(1.7+Math.random()*1.1)+"rem";
+  baseChao.appendChild(el); setTimeout(()=>el.remove(),dur*1000+200);
+}
+
+// ==================== PWA: instalar + service worker ====================
+let deferredPrompt=null;
+window.addEventListener("beforeinstallprompt",(e)=>{ e.preventDefault(); deferredPrompt=e;
+  document.getElementById("btnInstalar").style.display="flex"; });
+document.getElementById("btnInstalar").onclick=async()=>{
+  if(!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice;
+  deferredPrompt=null; document.getElementById("btnInstalar").style.display="none";
+};
+if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+  window.addEventListener("load",()=>{ navigator.serviceWorker.register("service-worker.js").catch(()=>{}); });
+}
+
+// ==================== INÍCIO ====================
+desenharRoleta();
+aplicarCenario(categoriaAtual);
+</script>
+</body>
+</html>
